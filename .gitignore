@@ -1,1 +1,6 @@
 .last_session_id
+.secrets
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
