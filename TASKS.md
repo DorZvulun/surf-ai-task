@@ -10,7 +10,7 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
   - Output: all directories present, repo pushed to GitHub
   - Depends on: nothing
 
-- [ ] **Task 2** — Write `k3d-config.yaml` + `infra/main.tf` with required providers and local backend
+- [x] **Task 2** — Write `k3d-config.yaml` + `infra/main.tf` with required providers and local backend
   - Output: `terraform init` succeeds
   - Depends on: Task 1
 
@@ -95,4 +95,4 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ## Progress
 
-1 / 14 tasks complete
+2 / 14 tasks complete
