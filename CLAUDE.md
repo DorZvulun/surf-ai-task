@@ -17,7 +17,7 @@ knowledge, and CI/CD automation.
 |---|---|---|
 | Local K8s cluster | k3d | Already installed; Docker-based; lightweight |
 | K8s cluster in TF | `pvotal-tech/k3d` provider | Native TF provider, proper state management |
-| API gateway / ingress | Traefik | Built into k3d by default — no extra deployment |
+| API gateway / ingress | Traefik | Built into k3d by default — no extra deployment + API Gateway is the new way|
 | Routing config | `kubernetes_manifest` (IngressRoute CRDs) | Traefik uses CRDs, not standard Ingress |
 | App 1 (custom) | Python + Dockerfile → Docker Hub | Demonstrates full build/push/deploy pipeline |
 | App 2 (reuse demo) | `mendhak/http-https-echo` public image | Shows module reusability with zero code change |
@@ -111,21 +111,26 @@ here and nothing else.
 ```hcl
 apps = {
   python-app = {
-    image       = "DOCKER_USERNAME/APP_IMAGE_NAME:latest"
+    image_name  = "ironman-web-app"   # combined with var.docker_username at deploy time
     replicas    = 2
     path_prefix = "/python-app"
   }
   echo-app = {
-    image       = "mendhak/http-https-echo:latest"
+    image_name  = "mendhak/http-https-echo:latest"  # public image, used as-is
     replicas    = 2
     path_prefix = "/echo-app"
   }
 }
 ```
 
-`DOCKER_USERNAME` and `APP_IMAGE_NAME` are placeholders. Set them via:
-- Local: `export TF_VAR_docker_username=yourusername` before running terraform
-- CI: set as GitHub Actions secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_IMAGE_NAME`
+`DOCKERHUB_USERNAME` is never hardcoded in any committed file. It is read from `.secrets`
+at runtime. In `infra/apps.tf`, the python-app image is constructed as:
+`"${var.docker_username}/ironman-web-app:latest"`
+
+`var.docker_username` is populated via the `TF_VAR_docker_username` env var, which the
+Makefile exports automatically by sourcing `.secrets`.
+
+CI secrets required: `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`.
 
 ---
 
@@ -188,7 +193,7 @@ env {
 - **Port**: 8080
 - **Reads from env**: `POD_NAME`, `POD_IP` — injected by Downward API at runtime
 - **Dockerfile**: multi-stage is NOT required; keep it simple and small
-- **Image name**: placeholder `APP_IMAGE_NAME` — set by the developer, do not hardcode
+- **Image name**: `ironman-web-app` — prefixed with `$DOCKERHUB_USERNAME` at build time
 - **Tags**: use `latest` for local dev; use git SHA (`$GITHUB_SHA`) in CI
 
 ---
@@ -239,9 +244,10 @@ one-off with a different structure).
 
 ### Local build
 
+Values come from `.secrets` (sourced by the Makefile — never run docker build manually):
+
 ```bash
-docker build -t ${DOCKER_USERNAME}/${APP_IMAGE_NAME}:latest ./app
-docker push ${DOCKER_USERNAME}/${APP_IMAGE_NAME}:latest
+make build  # sources .secrets, then: docker build + push $DOCKERHUB_USERNAME/ironman-web-app:latest
 ```
 
 ### CI build
@@ -254,6 +260,15 @@ Credentials come from secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`.
 ## Makefile Targets
 
 All Makefile commands must work from the repo root. Terraform is run with `-chdir=infra`.
+
+The Makefile must source `.secrets` and export all vars so that:
+- `$(DOCKERHUB_USERNAME)` is available for `docker build/push`
+- `TF_VAR_docker_username` is set for Terraform automatically
+
+```makefile
+include .secrets
+export
+```
 
 | Target | Description |
 |---|---|
@@ -295,7 +310,7 @@ File: `.github/workflows/ci.yml`
 5. Install k3d on the runner
 6. Setup Terraform
 7. `make init`
-8. `make apply` (with `TF_VAR_docker_username` set from secret)
+8. `make apply`
 9. `make test`
 10. `make destroy` (always runs, even on failure — use `if: always()`)
 
@@ -310,9 +325,8 @@ act push --secret-file .secrets
 
 `.secrets` file (gitignored):
 ```
-DOCKERHUB_USERNAME=yourusername
-DOCKERHUB_TOKEN=yourtoken
-DOCKERHUB_IMAGE_NAME=yourimage
+DOCKERHUB_USERNAME=<your-dockerhub-username>
+DOCKERHUB_TOKEN=<your-dockerhub-token>
 ```
 
 ---
@@ -326,17 +340,12 @@ DOCKERHUB_IMAGE_NAME=yourimage
 - `k3d` installed (`brew install k3d`)
 - `kubectl` installed
 - `helm` installed
-- Docker Hub account with `DOCKER_USERNAME` and `APP_IMAGE_NAME` decided
+- `.secrets` file populated with `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (see `.secrets` format above)
 
 ### Steps
 
 ```bash
 # 1. Set your Docker vars
-export DOCKER_USERNAME=yourusername
-export APP_IMAGE_NAME=your-image-name
-export TF_VAR_docker_username=$DOCKER_USERNAME
-export TF_VAR_app_image_name=$APP_IMAGE_NAME
-
 # 2. Build and push the custom Python app
 make build
 
