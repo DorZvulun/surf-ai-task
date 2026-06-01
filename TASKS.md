@@ -14,7 +14,7 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
   - Output: `terraform init` succeeds
   - Depends on: Task 1
 
-- [ ] **Task 3** — Write `infra/cluster.tf` — k3d cluster via `pvotal-tech/k3d` provider + configure kubernetes/helm providers from cluster kubeconfig
+- [x] **Task 3** — Write `infra/cluster.tf` — k3d cluster via `pvotal-tech/k3d` provider + configure kubernetes/helm providers from cluster kubeconfig
   - Output: `kubectl get nodes` shows a running cluster
   - Depends on: Task 2
 
@@ -95,4 +95,4 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ## Progress
 
-2 / 14 tasks complete
+3 / 14 tasks complete
