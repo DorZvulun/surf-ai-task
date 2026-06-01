@@ -6,7 +6,7 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ## Phase 1: Foundation
 
-- [ ] **Task 1** — Create public GitHub repo + initialize repo directory structure (dirs, `.gitignore`, README stub)
+- [x] **Task 1** — Create public GitHub repo + initialize repo directory structure (dirs, `.gitignore`, README stub)
   - Output: all directories present, repo pushed to GitHub
   - Depends on: nothing
 
@@ -95,4 +95,4 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ## Progress
 
-0 / 14 tasks complete
+1 / 14 tasks complete
