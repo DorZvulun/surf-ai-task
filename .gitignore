@@ -6,3 +6,4 @@
 .terraform.lock.hcl
 .CLAUDE.md.backup
 .TASKS.md.backup
+.secrets
