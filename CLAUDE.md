@@ -3,11 +3,12 @@
 ## Project Overview
 
 Senior DevOps candidate take-home assignment. Provision a local Kubernetes cluster using
-Terraform, deploy N web applications via a reusable module, expose them through an API
-gateway with distinct routes, and build a CI/CD pipeline. Submit via public GitHub repo.
+Terraform, deploy N web applications via a GitOps pipeline backed by ArgoCD, expose them
+through an API gateway with distinct routes, and build a CI/CD pipeline. Submit via public
+GitHub repo.
 
-The goal is to demonstrate: IaC proficiency, code reusability (DRY), Kubernetes networking
-knowledge, and CI/CD automation.
+The goal is to demonstrate: IaC proficiency, GitOps delivery, code reusability (DRY),
+Kubernetes networking knowledge, and CI/CD automation.
 
 ---
 
@@ -17,11 +18,13 @@ knowledge, and CI/CD automation.
 |---|---|---|
 | Local K8s cluster | k3d | Already installed; Docker-based; lightweight |
 | K8s cluster in TF | `pvotal-tech/k3d` provider | Native TF provider, proper state management |
-| API gateway / ingress | Traefik | Built into k3d by default — no extra deployment + API Gateway is the new way|
-| Routing config | `kubernetes_manifest` (IngressRoute CRDs) | Traefik uses CRDs, not standard Ingress |
+| API gateway / ingress | Traefik | Built into k3d by default — no extra deployment |
+| Routing config | Helm chart templates (IngressRoute CRDs) | Per-app IngressRoute + Middleware rendered by Helm |
+| GitOps engine | ArgoCD | Declarative sync, auto-rollout on git push, App-of-Apps pattern |
+| App deployment template | Helm chart (`gitops/chart/`) | Replaces TF module; portable, versioned, ArgoCD-native |
 | App 1 (custom) | Python + Dockerfile → Docker Hub | Demonstrates full build/push/deploy pipeline |
-| App 2 (reuse demo) | `mendhak/http-https-echo` public image | Shows module reusability with zero code change |
-| App 3 (bonus) | podinfo via `helm_release` | Demonstrates Helm provider integration |
+| App 2 (reuse demo) | `mendhak/http-https-echo` public image | Shows chart reusability with zero code change |
+| App 3 (bonus) | podinfo via `helm_release` | Demonstrates direct Helm provider integration |
 | Pod metadata | Kubernetes Downward API | Injects pod name + IP as env vars — no API calls |
 | CI/CD | GitHub Actions + `act` (local) | `act` runs Actions locally in Docker |
 | TF state | local backend | No remote state needed for a local dev task |
@@ -45,21 +48,31 @@ for cluster management, or any cloud resources.
 │   ├── main.py
 │   └── requirements.txt
 │
+├── gitops/                      # ArgoCD-watched content
+│   ├── chart/                   # Shared Helm chart (replaces modules/web-app/)
+│   │   ├── Chart.yaml
+│   │   ├── values.yaml          # chart defaults
+│   │   └── templates/
+│   │       ├── deployment.yaml  # Downward API env vars
+│   │       ├── service.yaml
+│   │       └── ingressroute.yaml  # Traefik IngressRoute + Middleware CRDs
+│   └── apps/                    # App-of-Apps root — each subdir is one app
+│       ├── python-app/
+│       │   ├── Application.yaml # ArgoCD Application CRD
+│       │   └── values.yaml      # image.tag, replicaCount, path.prefix
+│       └── echo-app/
+│           ├── Application.yaml
+│           └── values.yaml
+│
 ├── infra/                       # All Terraform code
 │   ├── main.tf                  # terraform block, required_providers, backend
-│   ├── cluster.tf               # k3d cluster resource
-│   ├── traefik.tf               # Traefik middleware + strip-prefix config
-│   ├── apps.tf                  # for_each over var.apps → module instantiation
+│   ├── cluster.tf               # k3d data source (see nodes.md for provider bug)
+│   ├── argocd.tf                # ArgoCD namespace + helm_release
+│   ├── argocd-apps.tf           # Root App-of-Apps Application CRD
 │   ├── podinfo.tf               # helm_release for podinfo (bonus)
-│   ├── variables.tf
+│   ├── variables.tf             # var.docker_username, var.repo_url
 │   ├── outputs.tf
-│   └── terraform.tfvars         # app definitions live here
-│
-├── modules/
-│   └── web-app/                 # Reusable module: Deployment + Service + IngressRoute
-│       ├── main.tf
-│       ├── variables.tf
-│       └── outputs.tf
+│   └── terraform.tfvars         # repo_url, docker_username
 │
 └── .github/
     └── workflows/
@@ -71,9 +84,9 @@ for cluster management, or any cloud resources.
 ## Terraform Conventions
 
 - **Provider versions**: pin all providers with `~>` constraints in `infra/main.tf`
-- **Naming**: all resource names use `var.app_name` as prefix — no hardcoded strings
-- **Namespace**: default to `"default"` but accept as module variable
-- **No hardcoded values**: image names, replicas, paths — all come from variables
+- **Naming**: all resource names use the app name as prefix — no hardcoded strings
+- **Namespace**: default to `"default"` but accept as Helm values override
+- **No hardcoded values**: image names, replicas, paths — all come from Helm values files
 - **State**: local backend, state file at `infra/terraform.tfstate`
 - **Format**: all `.tf` files must pass `terraform fmt -check`
 
@@ -98,34 +111,24 @@ terraform {
 }
 ```
 
-Configure the kubernetes and helm providers using the kubeconfig output from the k3d cluster
-resource so there are no chicken-and-egg dependency issues.
+Configure the kubernetes and helm providers using the kubeconfig from `~/.kube/config`
+with context `k3d-surf-cluster` (written by k3d when the cluster is created).
 
 ---
 
 ## App Definitions
 
-Apps are defined as a map in `infra/terraform.tfvars`. Adding a new app = adding one block
-here and nothing else.
+Apps live in `gitops/apps/<name>/`. Each directory contains two files:
 
-```hcl
-apps = {
-  python-app = {
-    image_name  = "ironman-web-app"   # combined with var.docker_username at deploy time
-    replicas    = 2
-    path_prefix = "/python-app"
-  }
-  echo-app = {
-    image_name  = "mendhak/http-https-echo:latest"  # public image, used as-is
-    replicas    = 2
-    path_prefix = "/echo-app"
-  }
-}
-```
+- **`Application.yaml`** — ArgoCD Application CRD that points to `gitops/chart/` as
+  the Helm chart source and `../apps/<name>/values.yaml` as the values override.
+- **`values.yaml`** — Helm values specific to this app: `image.repository`, `image.tag`,
+  `replicaCount`, `path.prefix`.
+
+**Adding a new app = add these two files and push. No Terraform changes required.**
 
 `DOCKERHUB_USERNAME` is never hardcoded in any committed file. It is read from `.secrets`
-at runtime. In `infra/apps.tf`, the python-app image is constructed as:
-`"${var.docker_username}/ironman-web-app:latest"`
+at runtime. The python-app image is built as `$DOCKERHUB_USERNAME/ironman-web-app`.
 
 `var.docker_username` is populated via the `TF_VAR_docker_username` env var, which the
 Makefile exports automatically by sourcing `.secrets`.
@@ -134,54 +137,48 @@ CI secrets required: `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`.
 
 ---
 
-## Web App Module Interface (modules/web-app)
+## Helm Chart Interface (gitops/chart/)
 
-### Variables
+The shared Helm chart is the single deployable unit for all web apps. It replaces the
+`modules/web-app/` Terraform module from the original design.
 
-| Variable | Type | Required | Description |
-|---|---|---|---|
-| `app_name` | string | yes | Used for all resource names |
-| `image` | string | yes | Full image reference |
-| `replicas` | number | no (default: 2) | Pod replica count |
-| `path_prefix` | string | yes | Traefik route path, e.g. `/python-app` |
-| `namespace` | string | no (default: "default") | K8s namespace |
-| `env_vars` | map(string) | no | Extra env vars to inject |
+### Default values (values.yaml)
 
-### What the module creates
+| Key | Default | Description |
+|---|---|---|
+| `replicaCount` | `2` | Pod replica count |
+| `image.repository` | `""` | Docker image repository |
+| `image.tag` | `"latest"` | Image tag — updated by CI to git SHA |
+| `image.pullPolicy` | `Always` | Always pull to pick up new pushes |
+| `path.prefix` | `"/"` | Traefik route path prefix |
+| `namespace` | `"default"` | Kubernetes namespace |
 
-1. `kubernetes_deployment` — with Downward API env vars for pod name and IP
-2. `kubernetes_service` — ClusterIP pointing to the deployment
-3. `kubernetes_manifest` — Traefik `IngressRoute` CRD for path-based routing
-4. `kubernetes_manifest` — Traefik `Middleware` for strip-prefix (removes path prefix before forwarding)
+### What the chart creates
 
-### Outputs
+1. `Deployment` — with Downward API env vars for pod name and IP
+2. `Service` — ClusterIP pointing to the deployment
+3. `IngressRoute` — Traefik CRD for path-based routing (`traefik.io/v1alpha1`)
+4. `Middleware` — Traefik strip-prefix (removes path prefix before forwarding)
 
-| Output | Description |
-|---|---|
-| `service_name` | Name of the created Service |
-| `deployment_name` | Name of the created Deployment |
-| `route_path` | The path_prefix value (for use in README/test commands) |
+Resource names follow the pattern `{{ .Release.Name }}-<type>` (e.g., `python-app-svc`).
 
 ---
 
 ## Downward API Pattern
 
-Every pod in the web-app module must expose pod name and IP as env vars using the Downward
-API. Use this exact pattern in the deployment container spec:
+Every pod created by the chart must expose pod name and IP as env vars. Use this exact
+pattern in `gitops/chart/templates/deployment.yaml`:
 
-```hcl
-env {
-  name = "POD_NAME"
-  value_from {
-    field_ref { field_path = "metadata.name" }
-  }
-}
-env {
-  name = "POD_IP"
-  value_from {
-    field_ref { field_path = "status.podIP" }
-  }
-}
+```yaml
+env:
+  - name: POD_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.name
+  - name: POD_IP
+    valueFrom:
+      fieldRef:
+        fieldPath: status.podIP
 ```
 
 ---
@@ -212,8 +209,67 @@ localhost/echo-app    → echo-app pods    (strip /echo-app)
 localhost/podinfo     → podinfo pods     (strip /podinfo)
 ```
 
-Use `kubernetes_manifest` for all Traefik CRD resources (`IngressRoute`, `Middleware`).
+`IngressRoute` and `Middleware` CRDs for web apps are defined in
+`gitops/chart/templates/ingressroute.yaml` and rendered by ArgoCD via Helm.
+For podinfo (one-off), they are defined as `kubernetes_manifest` in `infra/podinfo.tf`.
+
 The CRD group is `traefik.io/v1alpha1`.
+
+---
+
+## ArgoCD (infra/argocd.tf + infra/argocd-apps.tf)
+
+### Deployment
+
+ArgoCD is deployed via `helm_release` into the `argocd` namespace. Terraform creates
+the namespace and the Helm release.
+
+```hcl
+resource "helm_release" "argocd" {
+  name       = "argocd"
+  repository = "https://argoproj.github.io/argo-helm"
+  chart      = "argo-cd"
+  namespace  = "argocd"
+}
+```
+
+### App-of-Apps root Application
+
+A single Terraform-managed ArgoCD `Application` (the "root app") watches `gitops/apps/`.
+ArgoCD finds all `Application.yaml` files in that directory and creates child Applications.
+
+```hcl
+resource "kubernetes_manifest" "argocd_root_app" {
+  manifest = {
+    apiVersion = "argoproj.io/v1alpha1"
+    kind       = "Application"
+    metadata = {
+      name      = "apps"
+      namespace = "argocd"
+    }
+    spec = {
+      project = "default"
+      source = {
+        repoURL        = var.repo_url
+        targetRevision = "HEAD"
+        path           = "gitops/apps"
+      }
+      destination = {
+        server    = "https://kubernetes.default.svc"
+        namespace = "argocd"
+      }
+      syncPolicy = {
+        automated = { prune = true, selfHeal = true }
+      }
+    }
+  }
+}
+```
+
+### Sync policy
+
+All ArgoCD Applications use `syncPolicy.automated` with `prune = true` and
+`selfHeal = true`. Any push to the monitored paths triggers immediate reconciliation.
 
 ---
 
@@ -235,8 +291,8 @@ resource "helm_release" "podinfo" {
 }
 ```
 
-Add the IngressRoute for podinfo in `infra/podinfo.tf` (not inside a module — it's a
-one-off with a different structure).
+Add the IngressRoute for podinfo in `infra/podinfo.tf` as `kubernetes_manifest`
+(not inside the Helm chart — it's a one-off with a different structure).
 
 ---
 
@@ -255,6 +311,9 @@ make build  # sources .secrets, then: docker build + push $DOCKERHUB_USERNAME/ir
 In GitHub Actions, build on every push to `main`, tag with `$GITHUB_SHA` and `latest`.
 Credentials come from secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`.
 
+After pushing, CI updates `gitops/apps/python-app/values.yaml` with the new image tag
+and commits the change. ArgoCD detects the commit and triggers a rolling update.
+
 ---
 
 ## Makefile Targets
@@ -272,11 +331,13 @@ export
 
 | Target | Description |
 |---|---|
+| `make cluster-create` | Create k3d cluster via CLI (ports 80/443, API 6445, 1 server + 1 agent) |
+| `make cluster-delete` | Delete k3d cluster (`k3d cluster delete surf-cluster`) |
 | `make build` | Build and push Python app image to Docker Hub |
 | `make init` | `terraform -chdir=infra init` |
 | `make plan` | `terraform -chdir=infra plan` |
-| `make apply` | `terraform -chdir=infra apply -auto-approve` |
-| `make destroy` | `terraform -chdir=infra destroy -auto-approve` |
+| `make apply` | `cluster-create` → `terraform -chdir=infra apply -auto-approve` |
+| `make destroy` | `terraform -chdir=infra destroy -auto-approve` → `cluster-delete` |
 | `make test` | curl all app endpoints and assert HTTP 200 |
 | `make all` | build → init → apply → test |
 
@@ -301,18 +362,23 @@ File: `.github/workflows/ci.yml`
 3. `terraform -chdir=infra fmt -check`
 4. `terraform -chdir=infra init`
 5. `terraform -chdir=infra validate`
+6. Setup Helm
+7. `helm lint gitops/chart/`
 
 **deploy-and-test** (runs after lint-and-validate, only on push to main):
 1. Checkout
 2. Setup Docker Buildx
 3. Login to Docker Hub (secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`)
 4. Build and push image (tag: `$GITHUB_SHA` and `latest`)
-5. Install k3d on the runner
-6. Setup Terraform
-7. `make init`
-8. `make apply`
-9. `make test`
-10. `make destroy` (always runs, even on failure — use `if: always()`)
+5. Update `gitops/apps/python-app/values.yaml` image tag to `$GITHUB_SHA` via `yq`
+6. Commit `[ci] update python-app image to $GITHUB_SHA` and push
+7. Install k3d on the runner
+8. Setup Terraform
+9. `make init`
+10. `make apply` (creates cluster + terraform apply → ArgoCD deploys apps)
+11. Wait for ArgoCD sync: `kubectl -n argocd wait --for=condition=Synced application/python-app --timeout=120s`
+12. `make test`
+13. `make destroy` (always runs, even on failure — use `if: always()`)
 
 ### Local testing with act
 
@@ -340,18 +406,21 @@ DOCKERHUB_TOKEN=<your-dockerhub-token>
 - `k3d` installed (`brew install k3d`)
 - `kubectl` installed
 - `helm` installed
-- `.secrets` file populated with `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (see `.secrets` format above)
+- `argocd` CLI installed (`brew install argocd`) — optional, for inspecting sync status
+- `.secrets` file populated with `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
 
 ### Steps
 
 ```bash
-# 1. Set your Docker vars
-# 2. Build and push the custom Python app
+# 1. Build and push the custom Python app
 make build
 
-# 3. Provision cluster + deploy everything
+# 2. Provision cluster + deploy ArgoCD + bootstrap App-of-Apps
 make init
 make apply
+
+# 3. Wait for ArgoCD to sync apps
+kubectl -n argocd get applications   # python-app, echo-app: Synced/Healthy
 
 # 4. Verify
 make test
@@ -360,7 +429,12 @@ curl localhost/python-app
 curl localhost/echo-app
 curl localhost/podinfo
 
-# 5. Tear down
+# 5. GitOps update example — scale python-app
+# Edit gitops/apps/python-app/values.yaml: replicaCount: 2 → 3
+git add . && git commit -m "scale python-app to 3" && git push
+# ArgoCD syncs within ~3 minutes
+
+# 6. Tear down
 make destroy
 ```
 
@@ -369,16 +443,17 @@ make destroy
 ## What NOT to Do
 
 - Do not use `kind` — not installed, not the chosen tool
-- Do not use `local-exec` to manage the k3d cluster — use the `pvotal-tech/k3d` provider
+- Do not use `local-exec` to manage the k3d cluster — use the `pvotal-tech/k3d` provider (or CLI via Makefile as documented in nodes.md)
 - Do not deploy nginx-ingress — Traefik is already in k3d
-- Do not hardcode `DOCKER_USERNAME` or image names anywhere in `.tf` files
-- Do not define apps anywhere except `infra/terraform.tfvars`
+- Do not hardcode `DOCKER_USERNAME` or image names anywhere in `.tf` files or `values.yaml`
+- Do not manage app Deployments, Services, or IngressRoutes from Terraform directly — ArgoCD owns that
+- Do not add new apps by editing Terraform files — add `gitops/apps/<name>/` files and push
 - Do not create a separate TF state or backend per module
 - Do not add `helm_release` for things that already have a native TF/K8s resource
 - Do not add CI/CD steps that aren't in the workflow defined above
-- Do not skip `terraform fmt` — all files must be formatted
-- Do not use `kubernetes_manifest` for resources that have a dedicated TF resource type
-  (e.g., use `kubernetes_deployment`, not `kubernetes_manifest`, for Deployments)
+- Do not skip `terraform fmt` — all `.tf` files must be formatted
+- Do not use `kubernetes_manifest` for resources that have a dedicated TF resource type;
+  ArgoCD `Application` CRDs have no dedicated type, so `kubernetes_manifest` is correct there
 
 ---
 
@@ -387,7 +462,7 @@ make destroy
 Document honestly in the README:
 - Claude Code (claude-sonnet-4-6) was used to assist with this task
 - Architecture decisions were made collaboratively (human-in-the-loop on every choice)
-- All tech stack decisions: human confirmed before any code was written
-- Claude Code generated TF modules, Python app, Dockerfile, and CI workflow
+- All tech stack decisions: human confirmed before any code was written (including the shift to ArgoCD GitOps)
+- Claude Code generated the Helm chart, TF infrastructure, Python app, Dockerfile, and CI workflow
 - Human reviewed all output before committing
 - Prompts and design discussion captured in this CLAUDE.md

@@ -14,7 +14,7 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
   - Output: `terraform init` succeeds
   - Depends on: Task 1
 
-- [x] **Task 3** — Write `infra/cluster.tf` — k3d cluster via `pvotal-tech/k3d` provider + configure kubernetes/helm providers from cluster kubeconfig
+- [x] **Task 3** — Write `infra/cluster.tf` — k3d cluster via `pvotal-tech/k3d` provider data source + kubernetes/helm providers configured from kubeconfig
   - Output: `kubectl get nodes` shows a running cluster
   - Depends on: Task 2
 
@@ -36,20 +36,27 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ---
 
-## Phase 3: Terraform Module + Routing
+## Phase 3: Helm Chart + ArgoCD GitOps
 
-- [ ] **Task 7** — Write `modules/web-app/` — Deployment (Downward API), Service, Traefik IngressRoute + strip-prefix Middleware
-  - Output: module files written, `terraform validate` passes
+- [ ] **Task 7** — Write `gitops/chart/` — shared Helm chart (replaces `modules/web-app/`)
+  - `Chart.yaml`, `values.yaml` (defaults: replicaCount=2, image, path.prefix)
+  - `templates/deployment.yaml` — with Downward API env vars (POD_NAME, POD_IP)
+  - `templates/service.yaml` — ClusterIP
+  - `templates/ingressroute.yaml` — Traefik IngressRoute + Middleware CRDs (`traefik.io/v1alpha1`)
+  - Output: `helm template` renders valid YAML; `helm lint gitops/chart/` passes
   - Depends on: Task 3
 
-- [ ] **Task 8** — Write `infra/apps.tf`, `infra/variables.tf`, `infra/terraform.tfvars` — define both apps, instantiate module via `for_each`
-  - `variables.tf` includes `variable "docker_username" {}`
-  - `apps.tf` constructs python-app image as `"${var.docker_username}/ironman-web-app:latest"`
-  - `docker_username` never in tfvars — injected via `TF_VAR_docker_username` env var from `.secrets`
-  - Output: `terraform plan` shows correct resources
+- [ ] **Task 8** — Write ArgoCD infrastructure + App-of-Apps bootstrap + per-app files
+  - `infra/argocd.tf`: `kubernetes_namespace "argocd"` + `helm_release "argocd"`
+  - `infra/argocd-apps.tf`: root `kubernetes_manifest` Application watching `gitops/apps/`
+  - `infra/variables.tf`: `var.repo_url`, `var.docker_username`
+  - `infra/terraform.tfvars`: concrete values (repo URL, docker username placeholder)
+  - `gitops/apps/python-app/Application.yaml` + `values.yaml`
+  - `gitops/apps/echo-app/Application.yaml` + `values.yaml`
+  - Output: `terraform validate` passes; ArgoCD Application manifests are valid YAML
   - Depends on: Task 7
 
-- [ ] **Task 9** — `terraform apply` — deploy both apps, verify routing
+- [ ] **Task 9** — `terraform apply` — deploy ArgoCD, ArgoCD syncs both apps, verify routing
   - Output: `curl localhost/python-app` and `curl localhost/echo-app` return pod name + IP
   - Depends on: Task 6, Task 8
 
@@ -57,7 +64,7 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ## Phase 4: Bonus — podinfo
 
-- [ ] **Task 10** — Write `infra/podinfo.tf` — `helm_release` for podinfo + Traefik IngressRoute at `/podinfo`
+- [ ] **Task 10** — Write `infra/podinfo.tf` — `helm_release` for podinfo + Traefik `kubernetes_manifest` IngressRoute at `/podinfo`
   - Output: `curl localhost/podinfo` returns podinfo response
   - Depends on: Task 9
 
@@ -65,8 +72,10 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ## Phase 5: Makefile
 
-- [ ] **Task 11** — Write `Makefile` — targets: `build`, `init`, `plan`, `apply`, `destroy`, `test`, `all`
+- [ ] **Task 11** — Write `Makefile` — targets: `cluster-create`, `cluster-delete`, `build`, `init`, `plan`, `apply`, `destroy`, `test`, `all`
   - Must start with `include .secrets` + `export` to source credentials automatically
+  - `apply` wraps `cluster-create` → `terraform apply`
+  - `destroy` wraps `terraform destroy` → `cluster-delete`
   - `build` target uses `$(DOCKERHUB_USERNAME)/ironman-web-app:latest`
   - Output: `make all` runs end-to-end without error
   - Depends on: Task 10
@@ -75,11 +84,11 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ## Phase 6: CI/CD
 
-- [ ] **Task 12** — Write `.github/workflows/ci.yml` — `lint-and-validate` job (fmt-check, init, validate)
+- [ ] **Task 12** — Write `.github/workflows/ci.yml` — `lint-and-validate` job (fmt-check, init, validate, `helm lint gitops/chart/`)
   - Output: `act push` runs lint job cleanly
   - Depends on: Task 11
 
-- [ ] **Task 13** — Add `deploy-and-test` job to `ci.yml` — Docker build+push, k3d setup, apply, test, destroy
+- [ ] **Task 13** — Add `deploy-and-test` job to `ci.yml` — Docker build+push, update image tag in `gitops/apps/python-app/values.yaml`, git commit+push, k3d setup, apply, wait for ArgoCD sync, test, destroy
   - Output: full workflow passes with `act push --secret-file .secrets`
   - Depends on: Task 12
 
@@ -87,7 +96,7 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ## Phase 7: Documentation
 
-- [ ] **Task 14** — Write `README.md` — purpose, prerequisites, local setup, CI/CD explanation, AI usage section, design notes
+- [ ] **Task 14** — Write `README.md` — purpose, prerequisites, local setup, GitOps flow explanation, CI/CD explanation, AI usage section, design notes
   - Output: README is complete, accurate, and ready for submission
   - Depends on: Task 13
 
