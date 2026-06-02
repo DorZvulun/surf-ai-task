@@ -1,0 +1,26 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ .Release.Name }}-strip
+  namespace: {{ .Values.namespace }}
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ .Values.path.prefix | quote }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ .Release.Name }}-route
+  namespace: {{ .Values.namespace }}
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: PathPrefix(`{{ .Values.path.prefix }}`)
+      kind: Rule
+      middlewares:
+        - name: {{ .Release.Name }}-strip
+      services:
+        - name: {{ .Release.Name }}-svc
+          port: 80
