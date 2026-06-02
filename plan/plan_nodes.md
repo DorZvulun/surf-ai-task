@@ -43,3 +43,41 @@ The move to v2 - ArgoCD / App-of-Apps / gitops, Seperating Infra from App
 
   ---
   Core shift: v1.1 had Terraform owning the full app lifecycle end-to-end. v2 splits responsibility — Terraform only provisions infrastructure (cluster + ArgoCD), and ArgoCD takes over everything app-related via Git as the source of truth.
+
+
+
+
+  what tasks can run at parralel so I can use several sessions to handle them in parralle?
+
+⏺ Looking at the dependency graph from TASKS.md:
+
+  Tasks 1-3 ✓ done
+
+  RIGHT NOW — two sessions can run in parallel:
+
+    Session A                 Session B
+    ─────────                 ─────────
+    Task 4 (app/main.py)      Task 7 (gitops/chart/ Helm chart)
+      ↓                         ↓
+    Task 5 (Dockerfile)       Task 8 (argocd.tf + argocd-apps.tf
+      ↓                              + per-app Application.yaml/values.yaml)
+    Task 6 (docker push)
+                ↘             ↙
+              Task 9 ← MERGE POINT
+              (terraform apply + verify both apps routing)
+                  ↓
+              Task 10 (podinfo)
+                  ↓
+              Task 11 (Makefile)
+                  ↓
+              Task 12 (CI lint job)
+                  ↓
+              Task 13 (CI deploy job)
+                  ↓
+              Task 14 (README)
+
+  Session A is purely app code — no Kubernetes or Terraform involved. Just Python + Docker.
+
+  Session B is purely infrastructure — the Helm chart and the Terraform ArgoCD wiring. No running cluster needed to write and lint it.
+
+  Everything from Task 9 onward is sequential since each depends on all previous work being live in the cluster.
