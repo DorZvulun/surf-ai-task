@@ -1,0 +1,9 @@
+replicaCount: 2
+
+image:
+  repository: mendhak/http-https-echo
+  tag: "latest"
+  pullPolicy: Always
+
+path:
+  prefix: /echo-app
