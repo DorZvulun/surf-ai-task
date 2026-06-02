@@ -22,15 +22,15 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ## Phase 2: Custom Python App
 
-- [ ] **Task 4** — Write `app/main.py` + `app/requirements.txt` — Flask, reads `POD_NAME`/`POD_IP` env vars, returns JSON
+- [x] **Task 4** — Write `app/main.py` + `app/requirements.txt` — Flask, reads `POD_NAME`/`POD_IP` env vars, returns JSON
   - Output: `curl localhost:8080` returns `{"pod_name":"...","pod_ip":"...","app":"python-app"}`
   - Depends on: nothing (parallel with Phase 1)
 
-- [ ] **Task 5** — Write `app/Dockerfile` — simple image, port 8080
+- [x] **Task 5** — Write `app/Dockerfile` — simple image, port 8080
   - Output: `docker build` succeeds, container runs locally
   - Depends on: Task 4
 
-- [ ] **Task 6** — Build and push image to Docker Hub as `$DOCKERHUB_USERNAME/ironman-web-app:latest`
+- [x] **Task 6** — Build and push image to Docker Hub as `$DOCKERHUB_USERNAME/ironman-web-app:latest`
   - Output: image visible at `hub.docker.com/r/$DOCKERHUB_USERNAME/ironman-web-app`
   - Depends on: Task 5
 
@@ -38,7 +38,7 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ## Phase 3: Helm Chart + ArgoCD GitOps
 
-- [ ] **Task 7** — Write `gitops/chart/` — shared Helm chart (replaces `modules/web-app/`)
+- [x] **Task 7** — Write `gitops/chart/` — shared Helm chart (replaces `modules/web-app/`)
   - `Chart.yaml`, `values.yaml` (defaults: replicaCount=2, image, path.prefix)
   - `templates/deployment.yaml` — with Downward API env vars (POD_NAME, POD_IP)
   - `templates/service.yaml` — ClusterIP
@@ -46,7 +46,7 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
   - Output: `helm template` renders valid YAML; `helm lint gitops/chart/` passes
   - Depends on: Task 3
 
-- [ ] **Task 8** — Write ArgoCD infrastructure + App-of-Apps bootstrap + per-app files
+- [x] **Task 8** — Write ArgoCD infrastructure + App-of-Apps bootstrap + per-app files
   - `infra/argocd.tf`: `kubernetes_namespace "argocd"` + `helm_release "argocd"`
   - `infra/argocd-apps.tf`: root `kubernetes_manifest` Application watching `gitops/apps/`
   - `infra/variables.tf`: `var.repo_url`, `var.docker_username`
@@ -104,4 +104,4 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ## Progress
 
-3 / 14 tasks complete
+8 / 14 tasks complete
