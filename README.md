@@ -19,37 +19,37 @@ git push — no Terraform changes.
 │                                                                     │
 │  localhost:80 / localhost:443                                       │
 │         │                                                           │
-│  ┌──────▼──────────────────────────────────────────────────────┐   │
-│  │  k3d cluster  (surf-cluster)                                │   │
-│  │                                                             │   │
-│  │  ┌─────────────────────────┐                               │   │
-│  │  │  k3d Load Balancer      │  ← Docker port-maps 80/443   │   │
-│  │  └────────────┬────────────┘                               │   │
-│  │               │                                             │   │
-│  │  ┌────────────▼────────────────────────────────────────┐   │   │
-│  │  │  Traefik  (Ingress / API Gateway)                   │   │   │
-│  │  │  IngressRoute CRDs + strip-prefix Middleware        │   │   │
-│  │  │                                                     │   │   │
-│  │  │  /python-app ──► python-app-svc (8080)              │   │   │
-│  │  │  /echo-app   ──► echo-app-svc   (8080)              │   │   │
-│  │  │  /podinfo    ──► podinfo-svc    (9898)              │   │   │
-│  │  └─────────────────────────────────────────────────────┘   │   │
-│  │                                                             │   │
-│  │  ┌─────────────────────────────────────────────────────┐   │   │
-│  │  │  ArgoCD  (App-of-Apps)                              │   │   │
-│  │  │                                                     │   │   │
-│  │  │  root-app  ──  watches gitops/apps/ in git          │   │   │
-│  │  │    ├── python-app/Application.yaml ──► python-app   │   │   │
-│  │  │    ├── echo-app/Application.yaml   ──► echo-app     │   │   │
-│  │  │    └── podinfo/Application.yaml    ──► podinfo      │   │   │
-│  │  └─────────────────────────────────────────────────────┘   │   │
-│  │                                                             │   │
-│  │  ┌────────────────┐  ┌────────────────┐  ┌─────────────┐  │   │
-│  │  │  python-app    │  │   echo-app     │  │   podinfo   │  │   │
-│  │  │  2 pods        │  │   2 pods       │  │   2 pods    │  │   │
-│  │  │  (custom Flask)│  │  (public echo) │  │  (public)   │  │   │
-│  │  └────────────────┘  └────────────────┘  └─────────────┘  │   │
-│  └─────────────────────────────────────────────────────────────┘   │
+│  ┌──────▼──────────────────────────────────────────────────────┐    │
+│  │  k3d cluster  (surf-cluster)                                │    │
+│  │                                                             │    │
+│  │  ┌─────────────────────────┐                                │    │
+│  │  │  k3d Load Balancer      │  ← Docker port-maps 80/443     │    │
+│  │  └────────────┬────────────┘                                │    │
+│  │               │                                             │    │
+│  │  ┌────────────▼────────────────────────────────────────┐    │    │
+│  │  │  Traefik  (Ingress / API Gateway)                   │    │    │
+│  │  │  IngressRoute CRDs + strip-prefix Middleware        │    │    │
+│  │  │                                                     │    │    │
+│  │  │  /python-app ──► python-app-svc (8080)              │    │    │
+│  │  │  /echo-app   ──► echo-app-svc   (8080)              │    │    │
+│  │  │  /podinfo    ──► podinfo-svc    (9898)              │    │    │
+│  │  └─────────────────────────────────────────────────────┘    │    │
+│  │                                                             │    │
+│  │  ┌─────────────────────────────────────────────────────┐    │    │
+│  │  │  ArgoCD  (App-of-Apps)                              │    │    │
+│  │  │                                                     │    │    │
+│  │  │  root-app  ──  watches gitops/apps/ in git          │    │    │
+│  │  │    ├── python-app/Application.yaml ──► python-app   │    │    │
+│  │  │    ├── echo-app/Application.yaml   ──► echo-app     │    │    │
+│  │  │    └── podinfo/Application.yaml    ──► podinfo      │    │    │
+│  │  └─────────────────────────────────────────────────────┘    │    │
+│  │                                                             │    │
+│  │  ┌────────────────┐  ┌────────────────┐  ┌─────────────┐    │    │
+│  │  │  python-app    │  │   echo-app     │  │   podinfo   │    │    │
+│  │  │  2 pods        │  │   2 pods       │  │   2 pods    │    │    │
+│  │  │  (custom Flask)│  │  (public echo) │  │  (public)   │    │    │
+│  │  └────────────────┘  └────────────────┘  └─────────────┘    │    │
+│  └─────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────┘
         ▲
         │  git push → ArgoCD auto-sync (~3 min)
@@ -155,13 +155,24 @@ ArgoCD uses the **App-of-Apps** pattern:
 
 **echo-app and podinfo** use the same shared chart as python-app. Their values files supply a different `image.repository` and (for podinfo) a different `service.port`. No chart code changes needed.
 
+### Chart defaults and per-app overrides
+
+`gitops/chart/values.yaml` defines the defaults for every app deployed by the shared chart
+(e.g. `replicaCount: 2`, `image.pullPolicy: Always`). Each app's own
+`gitops/apps/<name>/values.yaml` can override any of those defaults. Only the keys that
+differ from the chart default need to be specified.
+
+Example — scale python-app to 3 replicas while leaving echo-app at the default of 2:
+
+```yaml
+# gitops/apps/python-app/values.yaml
+replicaCount: 3
+```
+
 ### Rolling update example
 
 ```bash
-# Scale python-app from 2 to 3 replicas
-# Edit gitops/apps/python-app/values.yaml:
-#   replicaCount: 3
-
+# Edit gitops/apps/python-app/values.yaml: replicaCount: 3
 git add gitops/apps/python-app/values.yaml
 git commit -m "scale python-app to 3 replicas"
 git push
