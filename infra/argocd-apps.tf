@@ -12,6 +12,9 @@ resource "kubernetes_manifest" "argocd_root_app" {
         repoURL        = var.repo_url
         targetRevision = "HEAD"
         path           = "gitops/apps"
+        directory = {
+          recurse = true
+        }
       }
       destination = {
         server    = "https://kubernetes.default.svc"
