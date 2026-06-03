@@ -72,7 +72,7 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ## Phase 5: Makefile
 
-- [ ] **Task 11** — Write `Makefile` — targets: `cluster-create`, `cluster-delete`, `build`, `init`, `plan`, `apply`, `destroy`, `test`, `all`
+- [x] **Task 11** — Write `Makefile` — targets: `cluster-create`, `cluster-delete`, `build`, `init`, `plan`, `apply`, `destroy`, `test`, `all`
   - Must start with `include .secrets` + `export` to source credentials automatically
   - `apply` wraps `cluster-create` → `terraform apply`
   - `destroy` wraps `terraform destroy` → `cluster-delete`
