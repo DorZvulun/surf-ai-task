@@ -89,6 +89,9 @@ git push — no Terraform changes.
 - **`.secrets`** file at the repo root (gitignored):
 
 ```
+# Required only if you want to build and push a new image (make build / CI deploy job).
+# The python-app image used in this assignment is already public on Docker Hub —
+# you can run make apply + make test without these credentials if you skip make build.
 DOCKERHUB_USERNAME=<your-dockerhub-username>
 DOCKERHUB_TOKEN=<your-dockerhub-token>
 ```
