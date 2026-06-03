@@ -9,8 +9,23 @@ on:
 jobs:
   lint-and-validate:
     runs-on: ubuntu-24.04
+    outputs:
+      app_changed: ${{ steps.filter.outputs.app }}
+      deploy_needed: ${{ steps.filter.outputs.deploy }}
     steps:
       - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'app/**'
+            deploy:
+              - 'app/**'
+              - 'infra/**'
+              - 'gitops/**'
+              - 'k3d-config.yaml'
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -29,3 +44,75 @@ jobs:
 
       - name: Helm lint
         run: helm lint gitops/chart/
+
+  deploy-and-test:
+    needs: lint-and-validate
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'push' && needs.lint-and-validate.outputs.deploy_needed == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        if: needs.lint-and-validate.outputs.app_changed == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: needs.lint-and-validate.outputs.app_changed == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        if: needs.lint-and-validate.outputs.app_changed == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: app/
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/ironman-web-app:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/ironman-web-app:latest
+
+      - name: Update python-app image tag
+        if: needs.lint-and-validate.outputs.app_changed == 'true'
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq -i ".image.tag = \"${{ github.sha }}\"" gitops/apps/python-app/values.yaml
+
+      - name: Commit and push updated values
+        if: needs.lint-and-validate.outputs.app_changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add gitops/apps/python-app/values.yaml
+          git commit -m "[ci] update python-app image to ${{ github.sha }}"
+          git push
+
+      - name: Install k3d
+        run: wget -q -O - https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Create .secrets file
+        run: |
+          echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" > .secrets
+          echo "DOCKERHUB_TOKEN=${{ secrets.DOCKERHUB_TOKEN }}" >> .secrets
+
+      - name: Terraform init
+        run: make init
+
+      - name: Apply cluster and infrastructure
+        run: make apply
+
+      - name: Wait for ArgoCD sync
+        run: kubectl -n argocd wait --for=condition=Synced application/python-app --timeout=120s
+
+      - name: Run tests
+        run: make test
+
+      - name: Destroy
+        if: always()
+        run: make destroy

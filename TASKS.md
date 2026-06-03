@@ -88,7 +88,7 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
   - Output: `act push` runs lint job cleanly
   - Depends on: Task 11
 
-- [ ] **Task 13** — Add `deploy-and-test` job to `ci.yml` — Docker build+push, update image tag in `gitops/apps/python-app/values.yaml`, git commit+push, k3d setup, apply, wait for ArgoCD sync, test, destroy
+- [x] **Task 13** — Add `deploy-and-test` job to `ci.yml` — Docker build+push, update image tag in `gitops/apps/python-app/values.yaml`, git commit+push, k3d setup, apply, wait for ArgoCD sync, test, destroy
   - Output: full workflow passes with `act push --secret-file .secrets`
   - Depends on: Task 12
 
