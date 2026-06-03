@@ -84,7 +84,7 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ## Phase 6: CI/CD
 
-- [ ] **Task 12** — Write `.github/workflows/ci.yml` — `lint-and-validate` job (fmt-check, init, validate, `helm lint gitops/chart/`)
+- [x] **Task 12** — Write `.github/workflows/ci.yml` — `lint-and-validate` job (fmt-check, init, validate, `helm lint gitops/chart/`)
   - Output: `act push` runs lint job cleanly
   - Depends on: Task 11
 
