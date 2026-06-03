@@ -96,7 +96,7 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ## Phase 7: Documentation
 
-- [ ] **Task 14** — Write `README.md` — purpose, prerequisites, local setup, GitOps flow explanation, CI/CD explanation, AI usage section, design notes
+- [x] **Task 14** — Write `README.md` — purpose, prerequisites, local setup, GitOps flow explanation, CI/CD explanation, AI usage section, design notes
   - Output: README is complete, accurate, and ready for submission
   - Depends on: Task 13
 
