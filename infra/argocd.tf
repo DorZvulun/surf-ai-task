@@ -12,13 +12,13 @@ resource "helm_release" "argocd" {
   wait       = true
 
   set {
-    name  = "server.insecure"
-    value = "true"
+    name  = "server.extraArgs[0]"
+    value = "--insecure"
   }
 
   set {
-    name  = "server.rootpath"
-    value = "/argocd"
+    name  = "server.extraArgs[1]"
+    value = "--rootpath=/argocd"
   }
 
   depends_on = [kubernetes_namespace.argocd]
