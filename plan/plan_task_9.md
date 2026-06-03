@@ -36,7 +36,25 @@ resource "helm_release" "argocd" {
 }
 ```
 
-### 2. `infra/outputs.tf` — new file
+### 2. `infra/argocd-apps.tf` — add `directory.recurse = true`
+
+**Why:** ArgoCD does not recurse into subdirectories by default. The per-app `Application.yaml`
+files live in `gitops/apps/python-app/` and `gitops/apps/echo-app/` — one level below the
+watched path. Without `recurse = true`, the root app syncs successfully but creates zero child
+Applications.
+
+```hcl
+source = {
+  repoURL        = var.repo_url
+  targetRevision = "HEAD"
+  path           = "gitops/apps"
+  directory = {
+    recurse = true
+  }
+}
+```
+
+### 3. `infra/outputs.tf` — new file
 
 Provides a post-apply hint for retrieving the ArgoCD admin password (needed for UI/CLI login during verification).
 
@@ -55,12 +73,20 @@ output "argocd_admin_password_cmd" {
 
 ## Apply Sequence (operational — no more code changes after above)
 
+**Note on two-phase apply:** `kubernetes_manifest` validates against the live Kubernetes API
+at **plan time**, not just apply time. This means a single `terraform apply` fails on a fresh
+cluster because the ArgoCD CRDs (`argoproj.io/v1alpha1`) don't exist yet when plan runs.
+`wait = true` on the helm_release solves the apply-time race but not the plan-time validation.
+Solution: split into two targeted applies. This will be encapsulated in `make apply` (Task 11).
+
 ```bash
 # 1. Create cluster (k3d-config.yaml: 1 server + 1 agent, ports 80/443)
 k3d cluster create surf-cluster --config k3d-config.yaml
 
-# 2. Apply — creates: argocd namespace → ArgoCD helm release (waits for CRDs ready)
-#    → root App-of-Apps Application
+# 2a. Phase 1: install ArgoCD only (registers argoproj.io CRDs)
+terraform -chdir=infra apply -target=kubernetes_namespace.argocd -target=helm_release.argocd -auto-approve
+
+# 2b. Phase 2: now CRDs exist — apply root Application
 terraform -chdir=infra apply -auto-approve
 
 # 3. Wait for ArgoCD to sync echo-app (python-app will be Degraded — expected)
