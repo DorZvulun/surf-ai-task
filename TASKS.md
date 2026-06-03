@@ -56,7 +56,7 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
   - Output: `terraform validate` passes; ArgoCD Application manifests are valid YAML
   - Depends on: Task 7
 
-- [ ] **Task 9** — `terraform apply` — deploy ArgoCD, ArgoCD syncs both apps, verify routing
+- [x] **Task 9** — `terraform apply` — deploy ArgoCD, ArgoCD syncs both apps, verify routing
   - Output: `curl localhost/python-app` and `curl localhost/echo-app` return pod name + IP
   - Depends on: Task 6, Task 8
 
@@ -64,7 +64,7 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ## Phase 4: Bonus — podinfo
 
-- [ ] **Task 10** — Write `infra/podinfo.tf` — `helm_release` for podinfo + Traefik `kubernetes_manifest` IngressRoute at `/podinfo`
+- [x] **Task 10** — Write `infra/podinfo.tf` — `helm_release` for podinfo + Traefik `kubernetes_manifest` IngressRoute at `/podinfo`
   - Output: `curl localhost/podinfo` returns podinfo response
   - Depends on: Task 9
 
@@ -104,4 +104,4 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 
 ## Progress
 
-8 / 14 tasks complete
+10 / 14 tasks complete

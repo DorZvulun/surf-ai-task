@@ -1,0 +1,14 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/stefanprodan/podinfo
+  tag: "latest"
+  pullPolicy: Always
+
+service:
+  port: 9898
+
+path:
+  prefix: /podinfo
+
+namespace: default

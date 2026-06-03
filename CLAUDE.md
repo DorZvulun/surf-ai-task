@@ -24,7 +24,7 @@ Kubernetes networking knowledge, and CI/CD automation.
 | App deployment template | Helm chart (`gitops/chart/`) | Replaces TF module; portable, versioned, ArgoCD-native |
 | App 1 (custom) | Python + Dockerfile → Docker Hub | Demonstrates full build/push/deploy pipeline |
 | App 2 (reuse demo) | `mendhak/http-https-echo` public image | Shows chart reusability with zero code change |
-| App 3 (bonus) | podinfo via `helm_release` | Demonstrates direct Helm provider integration |
+| App 3 (bonus) | podinfo via ArgoCD + shared Helm chart | Demonstrates chart reusability — same chart, 2-file addition |
 | Pod metadata | Kubernetes Downward API | Injects pod name + IP as env vars — no API calls |
 | CI/CD | GitHub Actions + `act` (local) | `act` runs Actions locally in Docker |
 | TF state | local backend | No remote state needed for a local dev task |
@@ -273,26 +273,18 @@ All ArgoCD Applications use `syncPolicy.automated` with `prune = true` and
 
 ---
 
-## Podinfo (Bonus — infra/podinfo.tf)
+## Podinfo (Bonus — gitops/apps/podinfo/)
 
-Deploy using the official Helm chart. Expose via a Traefik IngressRoute at `/podinfo`.
+Deployed via the shared Helm chart through ArgoCD — same pattern as python-app and echo-app.
+Two files added, zero Terraform changes. This is the point: the bonus task demonstrates
+chart reusability.
 
-```hcl
-resource "helm_release" "podinfo" {
-  name       = "podinfo"
-  repository = "https://stefanprodan.github.io/podinfo"
-  chart      = "podinfo"
-  namespace  = "default"
+- `gitops/apps/podinfo/Application.yaml` — ArgoCD Application pointing to `gitops/chart/`
+- `gitops/apps/podinfo/values.yaml` — sets `image.repository: ghcr.io/stefanprodan/podinfo`,
+  `service.port: 9898`, `path.prefix: /podinfo`
 
-  set {
-    name  = "ui.message"
-    value = "Hello from podinfo"
-  }
-}
-```
-
-Add the IngressRoute for podinfo in `infra/podinfo.tf` as `kubernetes_manifest`
-(not inside the Helm chart — it's a one-off with a different structure).
+The shared chart's `service.port` value (default `8080`) allows any app with a different
+container port to override it via values.
 
 ---
 
