@@ -36,8 +36,8 @@ destroy:
 	$(MAKE) cluster-delete
 
 test:
-	@echo "--- ironman-web-app ---" && curl -fsL localhost/ironman-web-app && echo
-	@echo "--- echo-app ---"   && curl -fsL localhost/echo-app   && echo
-	@echo "--- podinfo ---"    && curl -fsL localhost/podinfo     && echo
+	@echo "--- ironman-web-app ---" && curl -fsL --retry 10 --retry-delay 5 --retry-all-errors localhost/ironman-web-app && echo
+	@echo "--- echo-app ---"   && curl -fsL --retry 10 --retry-delay 5 --retry-all-errors localhost/echo-app   && echo
+	@echo "--- podinfo ---"    && curl -fsL --retry 10 --retry-delay 5 --retry-all-errors localhost/podinfo     && echo
 
 all: build init apply test
