@@ -1,4 +1,4 @@
-replicaCount: 3
+replicaCount: 1
 image:
   repository: ironman226/ironman-web-app
   tag: "latest"
