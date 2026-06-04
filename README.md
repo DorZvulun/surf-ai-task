@@ -86,35 +86,43 @@ git push — no Terraform changes.
 - **`kubectl`** — `brew install kubectl`
 - **`helm`** — `brew install helm`
 - **`argocd`** CLI — `brew install argocd` (optional, for inspecting sync status)
-- **`.secrets`** file at the repo root (gitignored):
+- **`.secrets`** file at the repo root (gitignored) — only required for `make build`:
 
 ```
-# Required only if you want to build and push a new image (make build / CI deploy job).
-# The python-app image used in this assignment is already public on Docker Hub —
-# you can run make apply + make test without these credentials if you skip make build.
 DOCKERHUB_USERNAME=<your-dockerhub-username>
 DOCKERHUB_TOKEN=<your-dockerhub-token>
 ```
+
+The python-app image used in this assignment is already public on Docker Hub. If you are
+not rebuilding the image, you can skip `make build` and omit `.secrets` entirely —
+all other `make` targets work without it.
+
+- **`infra/terraform.tfvars`** — already committed with `repo_url` pointing to this repo.
+  ArgoCD uses this URL to watch `gitops/apps/`. If you fork the repo, update this value
+  to your fork's URL before running `make apply`.
 
 ---
 
 ## Local Setup
 
 ```bash
-# 1. Build and push the custom Python app image
+# 1. (Optional) Build and push a new Python app image — skip if using the existing public image
 make build
 
 # 2. Initialise Terraform providers
 make init
 
-# 3. Create k3d cluster + deploy ArgoCD + bootstrap App-of-Apps
+# 3. Create k3d cluster + deploy ArgoCD + bootstrap App-of-Apps (~3-5 min)
+#    k3d automatically sets your kubectl context to k3d-surf-cluster
 make apply
 
-# 4. Wait for ArgoCD to sync all apps (~2-3 min)
+# 4. Wait for ArgoCD to discover and sync all apps (~2-3 min after apply)
+#    Re-run until all three apps show Synced/Healthy
 kubectl -n argocd get applications
-# python-app   Synced  Healthy
-# echo-app     Synced  Healthy
-# podinfo      Synced  Healthy
+# NAME         SYNC STATUS   HEALTH STATUS
+# python-app   Synced        Healthy
+# echo-app     Synced        Healthy
+# podinfo      Synced        Healthy
 
 # 5. Verify all routes
 make test
@@ -233,7 +241,11 @@ the equivalent would be a DNS or load-balancer cutover between two clusters
 
 **Local testing**:
 ```bash
+# Lint only (no app/infra changes in last commit)
 act push --secret-file .secrets
+
+# Force full build + deploy + test regardless of changed files
+act workflow_dispatch --secret-file .secrets --input force_build=true
 ```
 
 **Required GitHub secrets**: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`

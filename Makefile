@@ -1,4 +1,4 @@
-include .secrets
+-include .secrets
 export
 
 TF_VAR_docker_username := $(DOCKERHUB_USERNAME)
