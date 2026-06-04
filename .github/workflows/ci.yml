@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force build and deploy even if no relevant files changed'
+        type: boolean
+        default: false
 
 jobs:
   lint-and-validate:
@@ -18,6 +24,7 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.event.repository.default_branch || 'main' }}
           filters: |
             app:
               - 'app/**'
@@ -48,7 +55,9 @@ jobs:
   deploy-and-test:
     needs: lint-and-validate
     runs-on: ubuntu-24.04
-    if: github.event_name == 'push' && needs.lint-and-validate.outputs.deploy_needed == 'true'
+    if: >
+      (github.event_name == 'push' && needs.lint-and-validate.outputs.deploy_needed == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.force_build == true)
     steps:
       - uses: actions/checkout@v4
 
@@ -93,6 +102,12 @@ jobs:
       - name: Install k3d
         run: wget -q -O - https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
+      - name: Install kubectl
+        run: |
+          ARCH=$(dpkg --print-architecture)
+          curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH}/kubectl"
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
@@ -107,8 +122,26 @@ jobs:
       - name: Apply cluster and infrastructure
         run: make apply
 
+      - name: Wait for ArgoCD apps to be created
+        run: |
+          for app in python-app echo-app podinfo; do
+            echo "Waiting for Application/$app to exist..."
+            until kubectl -n argocd get application "$app" 2>/dev/null; do sleep 5; done
+          done
+
       - name: Wait for ArgoCD sync
-        run: kubectl -n argocd wait --for=condition=Synced application/python-app --timeout=120s
+        run: |
+          for app in python-app echo-app podinfo; do
+            echo "Waiting for $app to sync..."
+            until [ "$(kubectl -n argocd get application "$app" -o jsonpath='{.status.sync.status}' 2>/dev/null)" = "Synced" ]; do sleep 5; done
+            echo "$app synced"
+          done
+
+      - name: Wait for deployments to be ready
+        run: |
+          kubectl rollout status deployment/python-app --timeout=300s
+          kubectl rollout status deployment/echo-app --timeout=300s
+          kubectl rollout status deployment/podinfo --timeout=300s
 
       - name: Run tests
         run: make test
