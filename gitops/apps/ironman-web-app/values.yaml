@@ -1,7 +1,7 @@
 replicaCount: 2
 image:
   repository: ironman226/ironman-web-app
-  tag: "9e4e059aad8aec509ca8d865d2248d7e5889b094"
+  tag: "fe32d81c31cc91db8bf93758cb78649d19e02b4d"
   pullPolicy: Always
 path:
   prefix: /ironman-web-app
