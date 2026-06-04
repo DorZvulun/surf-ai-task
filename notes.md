@@ -30,10 +30,12 @@ and manage the cluster lifecycle via the Makefile (`k3d cluster create / delete`
 `cluster-delete` targets wired into `apply` and `destroy`.
 
 
+# TESTS
+
 There are three levels of testing, ordered by speed:
 
   ---
-  1. Lint only — fastest, no cluster needed (~1 min)
+  1. Lint only — fastest, no cluster needed (~1 min) [DONE]
 
   Validates the Terraform and Helm portions of the lint-and-validate job:
   terraform -chdir=infra fmt -check
@@ -42,7 +44,7 @@ There are three levels of testing, ordered by speed:
   helm lint gitops/chart/
 
   ---
-  2. Full local CI with act (~10-15 min)
+  2a. Full local CI with act (~10-15 min) [DONE]
 
   Runs the entire workflow in Docker, simulating a GitHub push:
   act push --secret-file .secrets
@@ -55,7 +57,13 @@ There are three levels of testing, ordered by speed:
   the right image)
 
   ---
-  3. Manual end-to-end — most reliable (~10 min)
+  2b. Full CI in Github Actions [DONE]
+
+  Runs the entire workflow in Github Actions. 
+  - needs secrets for Docker hub configured in the repo. 
+
+  ---
+  3. Manual end-to-end — most reliable (~10 min) [ ]
 
   Skips act entirely and runs the same steps the CI would:
   make build          # only if app/ changed
@@ -68,7 +76,7 @@ There are three levels of testing, ordered by speed:
   This is the most reliable local test because it uses your actual Docker and k3d environment, not Docker-in-Docker.
 
   ---
-  4. Push to GitHub — ground truth
+  4. Push to GitHub — ground truth [ ]
 
   Push to main and watch the Actions tab. This is the only way to confirm the path filter logic works correctly (e.g. that a
   docs-only commit actually skips the deploy job).
