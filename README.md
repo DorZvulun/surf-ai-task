@@ -278,7 +278,17 @@ concerns.
 ---
 
 ## AI Usage
+1. Providing assignment pdf to Claude and prompted for what I want in the architecture - asking it to create a Master Prompet what will create the CLAUD.md file. review it.
+2. Runing the master prompt -> generating CLAUD.md
+3. Asked for TASKS.md file so I can manage and sync on the progress.
+4. Run Tasks 1-3, than tought about ArgoCD and that I don't want to deploy all apps via TF module and helm_resource but using ArgoCD to mamange the Deployments in the cluster. TF => infra + Deploy ArgoCD, ArgoCD => Apps. 
+5. Reviewed what tasks can run in parrallel using git worktree - 4-5-6 / 7-8 -> merge -> 9...
+6. I run task by task, w/ clearing context and planning the next task. Creates a source of trouth + understanding of dev the process. Allowing me to review actions that will be taken & design / solution issues.
+7. Tests - both manual + AI 
+8. a bit of vibe coding to debug CI issues
+ 
 
+FROM AI POV: :-)
 [Claude Code](https://claude.com/claude-code) (`claude-sonnet-4-6`) assisted throughout
 this project:
 
