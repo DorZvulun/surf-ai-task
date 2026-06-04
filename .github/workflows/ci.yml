@@ -15,7 +15,7 @@ on:
 jobs:
 # LINTING AND VALIDATION JOB
   lint-and-validate:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
     outputs:
       app_changed: ${{ steps.filter.outputs.app }}
       deploy_needed: ${{ steps.filter.outputs.deploy }}
@@ -56,7 +56,7 @@ jobs:
 # DEPLOY AND TEST JOB
   deploy-and-test:
     needs: lint-and-validate
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: write
     if: >
