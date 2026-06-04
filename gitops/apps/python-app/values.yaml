@@ -1,9 +1,7 @@
 replicaCount: 2
-
 image:
   repository: ironman226/ironman-web-app
-  tag: "latest"
+  tag: "d34f797621e593396dd210e75927d2c992a810d4"
   pullPolicy: Always
-
 path:
   prefix: /python-app
