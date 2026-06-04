@@ -27,8 +27,7 @@ plan:
 	terraform -chdir=infra plan
 
 apply: cluster-create
-	@echo "Waiting for Traefik CRDs..." && until kubectl get crd ingressroutes.traefik.io 2>/dev/null; do sleep 3; done
-	kubectl wait --for=condition=established crd/ingressroutes.traefik.io --timeout=60s
+	@echo "Waiting for Traefik CRD to be established..." && until kubectl wait --for=condition=established crd/ingressroutes.traefik.io --timeout=10s 2>/dev/null; do sleep 3; done
 	terraform -chdir=infra apply -auto-approve -target=kubernetes_namespace.argocd -target=helm_release.argocd
 	terraform -chdir=infra apply -auto-approve
 
