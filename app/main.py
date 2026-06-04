@@ -9,7 +9,7 @@ def index():
     return jsonify(
         pod_name=os.environ.get("POD_NAME", "unknown"),
         pod_ip=os.environ.get("POD_IP", "unknown"),
-        app="python-app",
+        app="ironman-web-app",
     )
 
 

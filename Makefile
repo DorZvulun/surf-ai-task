@@ -15,9 +15,9 @@ cluster-delete:
 build:
 	docker build -t $(IMAGE):latest app/
 	docker push $(IMAGE):latest
-	sed -i '' 's|repository:.*|repository: $(IMAGE)|' gitops/apps/python-app/values.yaml
-	git add gitops/apps/python-app/values.yaml
-	git diff --cached --quiet || git commit -m "[ci] update python-app image repository"
+	sed -i '' 's|repository:.*|repository: $(IMAGE)|' gitops/apps/ironman-web-app/values.yaml
+	git add gitops/apps/ironman-web-app/values.yaml
+	git diff --cached --quiet || git commit -m "[ci] update ironman-web-app image repository"
 	git push || true
 
 init:
@@ -36,7 +36,7 @@ destroy:
 	$(MAKE) cluster-delete
 
 test:
-	@echo "--- python-app ---" && curl -fsL localhost/python-app && echo
+	@echo "--- ironman-web-app ---" && curl -fsL localhost/ironman-web-app && echo
 	@echo "--- echo-app ---"   && curl -fsL localhost/echo-app   && echo
 	@echo "--- podinfo ---"    && curl -fsL localhost/podinfo     && echo
 

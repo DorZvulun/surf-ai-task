@@ -69,7 +69,7 @@ There are three levels of testing, ordered by speed:
   make build          # only if app/ changed
   make init
   make apply          # creates cluster + terraform apply
-  kubectl -n argocd wait --for=condition=Synced application/python-app --timeout=120s
+  kubectl -n argocd wait --for=condition=Synced application/ironman-web-app --timeout=120s
   make test
   make destroy
 

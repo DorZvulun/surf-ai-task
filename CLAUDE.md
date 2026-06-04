@@ -57,7 +57,7 @@ for cluster management, or any cloud resources.
 │   │       ├── service.yaml
 │   │       └── ingressroute.yaml  # Traefik IngressRoute + Middleware CRDs
 │   └── apps/                    # App-of-Apps root — each subdir is one app
-│       ├── python-app/
+│       ├── ironman-web-app/
 │       │   ├── Application.yaml # ArgoCD Application CRD
 │       │   └── values.yaml      # image.tag, replicaCount, path.prefix
 │       └── echo-app/
@@ -128,7 +128,7 @@ Apps live in `gitops/apps/<name>/`. Each directory contains two files:
 **Adding a new app = add these two files and push. No Terraform changes required.**
 
 `DOCKERHUB_USERNAME` is never hardcoded in any committed file. It is read from `.secrets`
-at runtime. The python-app image is built as `$DOCKERHUB_USERNAME/ironman-web-app`.
+at runtime. The ironman-web-app image is built as `$DOCKERHUB_USERNAME/ironman-web-app`.
 
 `var.docker_username` is populated via the `TF_VAR_docker_username` env var, which the
 Makefile exports automatically by sourcing `.secrets`.
@@ -160,7 +160,7 @@ The shared Helm chart is the single deployable unit for all web apps. It replace
 3. `IngressRoute` — Traefik CRD for path-based routing (`traefik.io/v1alpha1`)
 4. `Middleware` — Traefik strip-prefix (removes path prefix before forwarding)
 
-Resource names follow the pattern `{{ .Release.Name }}-<type>` (e.g., `python-app-svc`).
+Resource names follow the pattern `{{ .Release.Name }}-<type>` (e.g., `ironman-web-app-svc`).
 
 ---
 
@@ -186,7 +186,7 @@ env:
 ## Python App (app/)
 
 - **Framework**: Flask or FastAPI — whichever is simpler
-- **Response**: JSON only — `{"pod_name": "...", "pod_ip": "...", "app": "python-app"}`
+- **Response**: JSON only — `{"pod_name": "...", "pod_ip": "...", "app": "ironman-web-app"}`
 - **Port**: 8080
 - **Reads from env**: `POD_NAME`, `POD_IP` — injected by Downward API at runtime
 - **Dockerfile**: multi-stage is NOT required; keep it simple and small
@@ -201,10 +201,10 @@ k3d ships with Traefik on `localhost:80` (HTTP) and `localhost:443` (HTTPS). Do 
 a second ingress controller.
 
 Routing pattern: each app gets a distinct path prefix with strip-prefix middleware so the
-upstream app sees `/` not `/python-app/`.
+upstream app sees `/` not `/ironman-web-app/`.
 
 ```
-localhost/python-app  → python-app pods  (strip /python-app)
+localhost/ironman-web-app  → ironman-web-app pods  (strip /ironman-web-app)
 localhost/echo-app    → echo-app pods    (strip /echo-app)
 localhost/podinfo     → podinfo pods     (strip /podinfo)
 ```
@@ -275,7 +275,7 @@ All ArgoCD Applications use `syncPolicy.automated` with `prune = true` and
 
 ## Podinfo (Bonus — gitops/apps/podinfo/)
 
-Deployed via the shared Helm chart through ArgoCD — same pattern as python-app and echo-app.
+Deployed via the shared Helm chart through ArgoCD — same pattern as ironman-web-app and echo-app.
 Two files added, zero Terraform changes. This is the point: the bonus task demonstrates
 chart reusability.
 
@@ -303,7 +303,7 @@ make build  # sources .secrets, then: docker build + push $DOCKERHUB_USERNAME/ir
 In GitHub Actions, build on every push to `main`, tag with `$GITHUB_SHA` and `latest`.
 Credentials come from secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`.
 
-After pushing, CI updates `gitops/apps/python-app/values.yaml` with the new image tag
+After pushing, CI updates `gitops/apps/ironman-web-app/values.yaml` with the new image tag
 and commits the change. ArgoCD detects the commit and triggers a rolling update.
 
 ---
@@ -362,13 +362,13 @@ File: `.github/workflows/ci.yml`
 2. Setup Docker Buildx
 3. Login to Docker Hub (secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`)
 4. Build and push image (tag: `$GITHUB_SHA` and `latest`)
-5. Update `gitops/apps/python-app/values.yaml` image tag to `$GITHUB_SHA` via `yq`
-6. Commit `[ci] update python-app image to $GITHUB_SHA` and push
+5. Update `gitops/apps/ironman-web-app/values.yaml` image tag to `$GITHUB_SHA` via `yq`
+6. Commit `[ci] update ironman-web-app image to $GITHUB_SHA` and push
 7. Install k3d on the runner
 8. Setup Terraform
 9. `make init`
 10. `make apply` (creates cluster + terraform apply → ArgoCD deploys apps)
-11. Wait for ArgoCD sync: `kubectl -n argocd wait --for=condition=Synced application/python-app --timeout=120s`
+11. Wait for ArgoCD sync: `kubectl -n argocd wait --for=condition=Synced application/ironman-web-app --timeout=120s`
 12. `make test`
 13. `make destroy` (always runs, even on failure — use `if: always()`)
 
@@ -412,18 +412,18 @@ make init
 make apply
 
 # 3. Wait for ArgoCD to sync apps
-kubectl -n argocd get applications   # python-app, echo-app: Synced/Healthy
+kubectl -n argocd get applications   # ironman-web-app, echo-app: Synced/Healthy
 
 # 4. Verify
 make test
 # or manually:
-curl localhost/python-app
+curl localhost/ironman-web-app
 curl localhost/echo-app
 curl localhost/podinfo
 
-# 5. GitOps update example — scale python-app
-# Edit gitops/apps/python-app/values.yaml: replicaCount: 2 → 3
-git add . && git commit -m "scale python-app to 3" && git push
+# 5. GitOps update example — scale ironman-web-app
+# Edit gitops/apps/ironman-web-app/values.yaml: replicaCount: 2 → 3
+git add . && git commit -m "scale ironman-web-app to 3" && git push
 # ArgoCD syncs within ~3 minutes
 
 # 6. Tear down

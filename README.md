@@ -30,7 +30,7 @@ git push — no Terraform changes.
 │  │  │  Traefik  (Ingress / API Gateway)                   │    │    │
 │  │  │  IngressRoute CRDs + strip-prefix Middleware        │    │    │
 │  │  │                                                     │    │    │
-│  │  │  /python-app ──► python-app-svc (8080)              │    │    │
+│  │  │  /ironman-web-app ──► ironman-web-app-svc (8080)     │    │    │
 │  │  │  /echo-app   ──► echo-app-svc   (8080)              │    │    │
 │  │  │  /podinfo    ──► podinfo-svc    (9898)              │    │    │
 │  │  └─────────────────────────────────────────────────────┘    │    │
@@ -39,15 +39,15 @@ git push — no Terraform changes.
 │  │  │  ArgoCD  (App-of-Apps)                              │    │    │
 │  │  │                                                     │    │    │
 │  │  │  root-app  ──  watches gitops/apps/ in git          │    │    │
-│  │  │    ├── python-app/Application.yaml ──► python-app   │    │    │
+│  │  │    ├── ironman-web-app/Application.yaml ──► ironman-web-app │    │    │
 │  │  │    ├── echo-app/Application.yaml   ──► echo-app     │    │    │
 │  │  │    └── podinfo/Application.yaml    ──► podinfo      │    │    │
 │  │  └─────────────────────────────────────────────────────┘    │    │
 │  │                                                             │    │
 │  │  ┌────────────────┐  ┌────────────────┐  ┌─────────────┐    │    │
-│  │  │  python-app    │  │   echo-app     │  │   podinfo   │    │    │
-│  │  │  2 pods        │  │   2 pods       │  │   2 pods    │    │    │
-│  │  │  (custom Flask)│  │  (public echo) │  │  (public)   │    │    │
+│  │  │  ironman-web-app │  │  echo-app     │  │   podinfo   │    │    │
+│  │  │  2 pods          │  │  2 pods       │  │   2 pods    │    │    │
+│  │  │  (custom Flask)  │  │ (public echo) │  │  (public)   │    │    │
 │  │  └────────────────┘  └────────────────┘  └─────────────┘    │    │
 │  └─────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────┘
@@ -93,7 +93,7 @@ DOCKERHUB_USERNAME=<your-dockerhub-username>
 DOCKERHUB_TOKEN=<your-dockerhub-token>
 ```
 
-The python-app image used in this assignment is already public on Docker Hub. If you are
+The ironman-web-app image used in this assignment is already public on Docker Hub. If you are
 not rebuilding the image, you can skip `make build` and omit `.secrets` entirely —
 all other `make` targets work without it.
 
@@ -119,15 +119,15 @@ make apply
 # 4. Wait for ArgoCD to discover and sync all apps (~2-3 min after apply)
 #    Re-run until all three apps show Synced/Healthy
 kubectl -n argocd get applications
-# NAME         SYNC STATUS   HEALTH STATUS
-# python-app   Synced        Healthy
-# echo-app     Synced        Healthy
-# podinfo      Synced        Healthy
+# NAME               SYNC STATUS   HEALTH STATUS
+# ironman-web-app    Synced        Healthy
+# echo-app           Synced        Healthy
+# podinfo            Synced        Healthy
 
 # 5. Verify all routes
 make test
 # or manually:
-curl localhost/python-app   # {"pod_name":"...","pod_ip":"...","app":"python-app"}
+curl localhost/ironman-web-app   # {"pod_name":"...","pod_ip":"...","app":"ironman-web-app"}
 curl localhost/echo-app     # JSON echo of the request
 curl localhost/podinfo      # podinfo JSON response
 
@@ -164,7 +164,7 @@ ArgoCD uses the **App-of-Apps** pattern:
 3. Each child Application points to `gitops/chart/` as its Helm source and the sibling `values.yaml` as its values override.
 4. Automated sync (`prune=true`, `selfHeal=true`) means any git push to a watched path triggers reconciliation within ~3 minutes.
 
-**echo-app and podinfo** use the same shared chart as python-app. Their values files supply a different `image.repository` and (for podinfo) a different `service.port`. No chart code changes needed.
+**echo-app and podinfo** use the same shared chart as ironman-web-app. Their values files supply a different `image.repository` and (for podinfo) a different `service.port`. No chart code changes needed.
 
 ### Chart defaults and per-app overrides
 
@@ -173,19 +173,19 @@ ArgoCD uses the **App-of-Apps** pattern:
 `gitops/apps/<name>/values.yaml` can override any of those defaults. Only the keys that
 differ from the chart default need to be specified.
 
-Example — scale python-app to 3 replicas while leaving echo-app at the default of 2:
+Example — scale ironman-web-app to 3 replicas while leaving echo-app at the default of 2:
 
 ```yaml
-# gitops/apps/python-app/values.yaml
+# gitops/apps/ironman-web-app/values.yaml
 replicaCount: 3
 ```
 
 ### Rolling update example
 
 ```bash
-# Edit gitops/apps/python-app/values.yaml: replicaCount: 3
-git add gitops/apps/python-app/values.yaml
-git commit -m "scale python-app to 3 replicas"
+# Edit gitops/apps/ironman-web-app/values.yaml: replicaCount: 3
+git add gitops/apps/ironman-web-app/values.yaml
+git commit -m "scale ironman-web-app to 3 replicas"
 git push
 # ArgoCD detects the commit and performs a rolling update — no downtime
 ```
@@ -224,8 +224,8 @@ GitHub Actions
         ├── terraform apply
         │     ├── ArgoCD helm release  (argocd namespace)
         │     └── App-of-Apps root Application CRD
-        ├── kubectl wait --for=condition=Synced application/python-app
-        ├── make test  (curl /python-app /echo-app /podinfo)
+        ├── kubectl wait --for=condition=Synced application/ironman-web-app
+        ├── make test  (curl /ironman-web-app /echo-app /podinfo)
         └── make destroy  (always · terraform destroy + cluster delete)
 ```
 

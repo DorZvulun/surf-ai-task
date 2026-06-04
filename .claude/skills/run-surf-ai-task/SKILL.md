@@ -29,9 +29,9 @@ DOCKERHUB_TOKEN=<your-token>
 
 ---
 
-## Build (python-app only)
+## Build (ironman-web-app only)
 
-The other two apps use public images. The python-app must be built and pushed once before
+The other two apps use public images. The ironman-web-app must be built and pushed once before
 it can be deployed by ArgoCD:
 
 ```bash
@@ -39,10 +39,10 @@ make build
 ```
 
 This builds `$DOCKERHUB_USERNAME/ironman-web-app:latest`, pushes it, patches
-`gitops/apps/python-app/values.yaml` with the correct `image.repository`, and commits +
+`gitops/apps/ironman-web-app/values.yaml` with the correct `image.repository`, and commits +
 pushes the change so ArgoCD can pick it up.
 
-**Until `make build` is run**, python-app pods show `InvalidImageName` and the endpoint
+**Until `make build` is run**, ironman-web-app pods show `InvalidImageName` and the endpoint
 returns 503. The other two apps (echo-app, podinfo) are unaffected.
 
 ---
@@ -60,7 +60,7 @@ Wait for ArgoCD to sync all apps (~60–120 s):
 kubectl -n argocd wait --for=condition=Synced application/echo-app --timeout=120s
 kubectl -n argocd wait --for=condition=Synced application/podinfo   --timeout=120s
 # only if make build was run first:
-kubectl -n argocd wait --for=condition=Synced application/python-app --timeout=120s
+kubectl -n argocd wait --for=condition=Synced application/ironman-web-app --timeout=120s
 ```
 
 ---
@@ -68,10 +68,10 @@ kubectl -n argocd wait --for=condition=Synced application/python-app --timeout=1
 ## Run (agent path) — smoke test
 
 ```bash
-# With python-app (requires make build first):
+# With ironman-web-app (requires make build first):
 bash .claude/skills/run-surf-ai-task/smoke.sh
 
-# Without python-app (echo-app + podinfo only):
+# Without ironman-web-app (echo-app + podinfo only):
 SKIP_PYTHON_APP=1 bash .claude/skills/run-surf-ai-task/smoke.sh
 ```
 
@@ -106,7 +106,7 @@ make destroy    # terraform destroy → k3d cluster delete
 
 ## Gotchas
 
-- **`image.repository: ""`** — python-app `values.yaml` ships with an empty repository
+- **`image.repository: ""`** — ironman-web-app `values.yaml` ships with an empty repository
   field. ArgoCD will sync successfully but pods fail with `InvalidImageName`. Fix:
   `make build`. echo-app and podinfo are unaffected.
 
@@ -130,8 +130,8 @@ make destroy    # terraform destroy → k3d cluster delete
 
 | Symptom | Fix |
 |---|---|
-| `curl: (22) ... 503` on python-app | Run `make build` first |
+| `curl: (22) ... 503` on ironman-web-app | Run `make build` first |
 | `k3d cluster create` fails: cluster already exists | Run `k3d cluster delete surf-cluster` first, or skip to `terraform apply` |
 | ArgoCD Applications not appearing | Wait 90 s after `make apply`; ArgoCD startup takes ~60 s |
-| `InvalidImageName` pods stuck after `make build` | ArgoCD needs to re-sync; trigger with `argocd app sync python-app` or wait ~3 min |
+| `InvalidImageName` pods stuck after `make build` | ArgoCD needs to re-sync; trigger with `argocd app sync ironman-web-app` or wait ~3 min |
 | `terraform apply` fails: `connection refused` | k3d cluster isn't up yet; run `k3d cluster list` and wait for `1/1` servers |

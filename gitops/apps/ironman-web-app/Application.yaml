@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: python-app
+  name: ironman-web-app
   namespace: argocd
 spec:
   project: default
@@ -11,7 +11,7 @@ spec:
     path: gitops/chart
     helm:
       valueFiles:
-        - ../apps/python-app/values.yaml
+        - ../apps/ironman-web-app/values.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: default

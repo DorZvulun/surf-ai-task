@@ -86,13 +86,13 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/ironman-web-app:${{ github.sha }}
             ${{ secrets.DOCKERHUB_USERNAME }}/ironman-web-app:latest
 
-      - name: Update python-app image tag
+      - name: Update ironman-web-app image tag
         if: needs.lint-and-validate.outputs.app_changed == 'true'
         run: |
           sudo wget -qO /usr/local/bin/yq \
             https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
-          yq -i ".image.tag = \"${{ github.sha }}\"" gitops/apps/python-app/values.yaml
+          yq -i ".image.tag = \"${{ github.sha }}\"" gitops/apps/ironman-web-app/values.yaml
 
       - name: Commit and push updated values
         if: needs.lint-and-validate.outputs.app_changed == 'true'
@@ -100,8 +100,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
-          git add gitops/apps/python-app/values.yaml
-          git commit -m "[ci] update python-app image to ${{ github.sha }}"
+          git add gitops/apps/ironman-web-app/values.yaml
+          git commit -m "[ci] update ironman-web-app image to ${{ github.sha }}"
           git push
 
       - name: Install k3d
@@ -129,14 +129,14 @@ jobs:
 
       - name: Wait for ArgoCD apps to be created
         run: |
-          for app in python-app echo-app podinfo; do
+          for app in ironman-web-app echo-app podinfo; do
             echo "Waiting for Application/$app to exist..."
             until kubectl -n argocd get application "$app" 2>/dev/null; do sleep 5; done
           done
 
       - name: Wait for ArgoCD sync
         run: |
-          for app in python-app echo-app podinfo; do
+          for app in ironman-web-app echo-app podinfo; do
             echo "Waiting for $app to sync..."
             until [ "$(kubectl -n argocd get application "$app" -o jsonpath='{.status.sync.status}' 2>/dev/null)" = "Synced" ]; do sleep 5; done
             echo "$app synced"
@@ -144,7 +144,7 @@ jobs:
 
       - name: Wait for deployments to be ready
         run: |
-          kubectl rollout status deployment/python-app --timeout=300s
+          kubectl rollout status deployment/ironman-web-app --timeout=300s
           kubectl rollout status deployment/echo-app --timeout=300s
           kubectl rollout status deployment/podinfo --timeout=300s
 

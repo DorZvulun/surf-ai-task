@@ -23,7 +23,7 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
 ## Phase 2: Custom Python App
 
 - [x] **Task 4** — Write `app/main.py` + `app/requirements.txt` — Flask, reads `POD_NAME`/`POD_IP` env vars, returns JSON
-  - Output: `curl localhost:8080` returns `{"pod_name":"...","pod_ip":"...","app":"python-app"}`
+  - Output: `curl localhost:8080` returns `{"pod_name":"...","pod_ip":"...","app":"ironman-web-app"}`
   - Depends on: nothing (parallel with Phase 1)
 
 - [x] **Task 5** — Write `app/Dockerfile` — simple image, port 8080
@@ -51,13 +51,13 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
   - `infra/argocd-apps.tf`: root `kubernetes_manifest` Application watching `gitops/apps/`
   - `infra/variables.tf`: `var.repo_url`, `var.docker_username`
   - `infra/terraform.tfvars`: concrete values (repo URL, docker username placeholder)
-  - `gitops/apps/python-app/Application.yaml` + `values.yaml`
+  - `gitops/apps/ironman-web-app/Application.yaml` + `values.yaml`
   - `gitops/apps/echo-app/Application.yaml` + `values.yaml`
   - Output: `terraform validate` passes; ArgoCD Application manifests are valid YAML
   - Depends on: Task 7
 
 - [x] **Task 9** — `terraform apply` — deploy ArgoCD, ArgoCD syncs both apps, verify routing
-  - Output: `curl localhost/python-app` and `curl localhost/echo-app` return pod name + IP
+  - Output: `curl localhost/ironman-web-app` and `curl localhost/echo-app` return pod name + IP
   - Depends on: Task 6, Task 8
 
 ---
@@ -88,7 +88,7 @@ Each task has one clear output, takes ≤30 minutes, and can be executed indepen
   - Output: `act push` runs lint job cleanly
   - Depends on: Task 11
 
-- [x] **Task 13** — Add `deploy-and-test` job to `ci.yml` — Docker build+push, update image tag in `gitops/apps/python-app/values.yaml`, git commit+push, k3d setup, apply, wait for ArgoCD sync, test, destroy
+- [x] **Task 13** — Add `deploy-and-test` job to `ci.yml` — Docker build+push, update image tag in `gitops/apps/ironman-web-app/values.yaml`, git commit+push, k3d setup, apply, wait for ArgoCD sync, test, destroy
   - Output: full workflow passes with `act push --secret-file .secrets`
   - Depends on: Task 12
 

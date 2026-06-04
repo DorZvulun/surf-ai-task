@@ -4,4 +4,4 @@ image:
   tag: "9e4e059aad8aec509ca8d865d2248d7e5889b094"
   pullPolicy: Always
 path:
-  prefix: /python-app
+  prefix: /ironman-web-app
