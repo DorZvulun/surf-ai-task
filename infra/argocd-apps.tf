@@ -3,7 +3,7 @@ resource "kubernetes_manifest" "argocd_root_app" {
     apiVersion = "argoproj.io/v1alpha1"
     kind       = "Application"
     metadata = {
-      name      = "apps"
+      name      = "surf-apps"
       namespace = "argocd"
     }
     spec = {

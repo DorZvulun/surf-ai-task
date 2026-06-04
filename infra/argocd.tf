@@ -21,6 +21,11 @@ resource "helm_release" "argocd" {
     value = "--rootpath=/argocd"
   }
 
+  set {
+    name  = "configs.cm.url"
+    value = "http://localhost/argocd"
+  }
+
   depends_on = [kubernetes_namespace.argocd]
 }
 

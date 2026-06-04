@@ -124,14 +124,18 @@ kubectl -n argocd get applications
 # echo-app           Synced        Healthy
 # podinfo            Synced        Healthy
 
-# 5. Verify all routes
+# 5. (Optional) Access ArgoCD UI
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d && echo
+# Open http://localhost/argocd  —  username: admin
+
+# 6. Verify all routes
 make test
 # or manually:
 curl localhost/ironman-web-app   # {"pod_name":"...","pod_ip":"...","app":"ironman-web-app"}
 curl localhost/echo-app     # JSON echo of the request
 curl localhost/podinfo      # podinfo JSON response
 
-# 6. Tear down
+# 7. Tear down
 make destroy
 ```
 
